@@ -31,3 +31,6 @@ weights/
 *.npz
 
 .DS_Store
+training_log/
+preprocess_outputs/
+files/
