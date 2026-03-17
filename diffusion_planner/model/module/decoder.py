@@ -21,6 +21,7 @@ class Decoder(nn.Module):
         self._sde = VPSDE_linear()
 
         self.dit = DiT(
+            config=config,
             sde=self._sde, 
             route_encoder = RouteEncoder(config.route_num, config.lane_len, drop_path_rate=config.encoder_drop_path_rate, hidden_dim=config.hidden_dim),
             depth=config.decoder_depth, 
@@ -88,6 +89,7 @@ class Decoder(nn.Module):
         # Extract context encoding
         ego_neighbor_encoding = encoder_outputs['encoding']
         route_lanes = inputs['route_lanes']
+        skill_id = inputs.get("skill_id", None)
 
         if self.training:
             sampled_trajectories = inputs['sampled_trajectories'].reshape(B, P, -1) # [B, 1 + predicted_neighbor_num, (1 + V_future) * 4]
@@ -99,7 +101,8 @@ class Decoder(nn.Module):
                         diffusion_time,
                         ego_neighbor_encoding,
                         route_lanes,
-                        neighbor_current_mask
+                        neighbor_current_mask,
+                        skill_id=skill_id,
                     ).reshape(B, P, -1, 4)
                 }
         else:
@@ -111,13 +114,16 @@ class Decoder(nn.Module):
                 xt[:, :, 0, :] = current_states
                 return xt.reshape(B, P, -1)
             
+            guidance_inputs = {k: v for k, v in inputs.items() if k != "skill_id"}
+
             x0 = dpm_sampler(
                         self.dit,
                         xT,
                         other_model_params={
                             "cross_c": ego_neighbor_encoding, 
                             "route_lanes": route_lanes,
-                            "neighbor_current_mask": neighbor_current_mask                            
+                            "neighbor_current_mask": neighbor_current_mask,
+                            "skill_id": skill_id,
                         },
                         dpm_solver_params={
                             "correcting_xt_fn":initial_state_constraint,
@@ -129,9 +135,10 @@ class Decoder(nn.Module):
                                 "model_condition": {
                                     "cross_c": ego_neighbor_encoding, 
                                     "route_lanes": route_lanes,
-                                    "neighbor_current_mask": neighbor_current_mask                            
+                                    "neighbor_current_mask": neighbor_current_mask,
+                                    "skill_id": skill_id,
                                 },
-                                "inputs": inputs,
+                                "inputs": guidance_inputs,
                                 "observation_normalizer": self._observation_normalizer,
                                 "state_normalizer": self._state_normalizer
                             },
@@ -193,13 +200,16 @@ class RouteEncoder(nn.Module):
 
 
 class DiT(nn.Module):
-    def __init__(self, sde: SDE, route_encoder: nn.Module, depth, output_dim, hidden_dim=192, heads=6, dropout=0.1, mlp_ratio=4.0, model_type="x_start"):
+    def __init__(self, config, sde: SDE, route_encoder: nn.Module, depth, output_dim, hidden_dim=192, heads=6, dropout=0.1, mlp_ratio=4.0, model_type="x_start"):
         super().__init__()
         
         assert model_type in ["score", "x_start"], f"Unknown model type: {model_type}"
         self._model_type = model_type
+        self.use_skill_condition = getattr(config, "use_skill_condition", False)
+        self.num_skills = getattr(config, "num_skills", 8)
         self.route_encoder = route_encoder
         self.agent_embedding = nn.Embedding(2, hidden_dim)
+        self.skill_embedding = nn.Embedding(self.num_skills, hidden_dim)
         self.preproj = Mlp(in_features=output_dim, hidden_features=512, out_features=hidden_dim, act_layer=nn.GELU, drop=0.)
         self.t_embedder = TimestepEmbedder(hidden_dim)
         self.blocks = nn.ModuleList([DiTBlock(hidden_dim, heads, dropout, mlp_ratio) for i in range(depth)])
@@ -211,7 +221,7 @@ class DiT(nn.Module):
     def model_type(self):
         return self._model_type
 
-    def forward(self, x, t, cross_c, route_lanes, neighbor_current_mask):
+    def forward(self, x, t, cross_c, route_lanes, neighbor_current_mask, skill_id=None):
         """
         Forward pass of DiT.
         x: (B, P, output_dim)   -> Embedded out of DiT
@@ -228,7 +238,13 @@ class DiT(nn.Module):
 
         route_encoding = self.route_encoder(route_lanes)
         y = route_encoding
-        y = y + self.t_embedder(t)      
+        y = y + self.t_embedder(t)
+
+        if self.use_skill_condition and (skill_id is not None):
+            if isinstance(skill_id, torch.Tensor) and skill_id.ndim == 2 and skill_id.shape[-1] == 1:
+                skill_id = skill_id.squeeze(-1)
+            skill_emb = self.skill_embedding(skill_id.long())
+            y = y + skill_emb      
 
         attn_mask = torch.zeros((B, P), dtype=torch.bool, device=x.device)
         attn_mask[:, 1:] = neighbor_current_mask

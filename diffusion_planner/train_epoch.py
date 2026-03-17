@@ -39,6 +39,8 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
 
             '''
 
+            skill_id = batch[11].to(args.device).long()
+
             # prepare data
             inputs = {
                 'ego_current_state': batch[0].to(args.device),
@@ -86,6 +88,7 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
             )
             neighbors_future[mask] = 0.
             inputs = args.observation_normalizer(inputs)
+            inputs["skill_id"] = skill_id
                   
             # call the mdoel
             optimizer.zero_grad()

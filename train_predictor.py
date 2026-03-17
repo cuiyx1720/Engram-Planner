@@ -37,6 +37,7 @@ def get_args():
     # Data
     parser.add_argument('--train_set', type=str, help='path to train data', default=None)
     parser.add_argument('--train_set_list', type=str, help='data list of train data', default=None)
+    parser.add_argument('--skill_map_path', type=str, help='path to skill_map.json (optional)', default=None)
 
     parser.add_argument('--future_len', type=int, help='number of time point', default=80)
     parser.add_argument('--time_len', type=int, help='number of time point', default=21)
@@ -79,6 +80,8 @@ def get_args():
     parser.add_argument('--device', type=str, help='run on which device (default: cuda)', default='cuda')
 
     parser.add_argument('--use_ema', default=True, type=boolean)
+    parser.add_argument('--use_skill_condition', default=False, type=boolean, help='enable skill-conditioned DiT (default: False)')
+    parser.add_argument('--num_skills', type=int, default=8, help='number of discrete skills (default: 8)')
 
     # Model
     parser.add_argument('--encoder_depth', type=int, help='number of encoding layers', default=3)
@@ -145,7 +148,7 @@ def model_training(args):
     
     # set up data loaders
     aug = StatePerturbation(augment_prob=args.augment_prob, device=args.device) if args.use_data_augment else None
-    train_set = DiffusionPlannerData(args.train_set, args.train_set_list, args.agent_num, args.predicted_neighbor_num, args.future_len)
+    train_set = DiffusionPlannerData(args.train_set, args.train_set_list, args.agent_num, args.predicted_neighbor_num, args.future_len, skill_map_path=args.skill_map_path)
     train_sampler = DistributedSampler(train_set, num_replicas=ddp.get_world_size(), rank=global_rank, shuffle=True)
     train_loader = DataLoader(train_set, sampler=train_sampler, batch_size=batch_size//ddp.get_world_size(), num_workers=args.num_workers, pin_memory=args.pin_mem, drop_last=True)
    
