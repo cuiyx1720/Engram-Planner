@@ -23,7 +23,8 @@ class TensorBoardLogger():
                 id = wandb_resume_id,
                 sync_tensorboard=True,
                 dir=f'{save_path}')
-            wandb.config.update(args)
+            # wandb.config.update(args)
+            wandb.config.update(vars(args), allow_val_change=True)
             self.id = wandb_writer.id
             
             self.writer = SummaryWriter(log_dir=f'{save_path}/tb')

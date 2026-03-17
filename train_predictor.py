@@ -31,7 +31,7 @@ def boolean(v):
 def get_args():
     # Arguments
     parser = argparse.ArgumentParser(description='Training')
-    parser.add_argument('--name', type=str, help='log name (default: "diffusion-planner-training")', default="diffusion-planner-training")
+    parser.add_argument('--name', type=str, help='log name (default: "diffusion-planner-training")', default="df-engram")
     parser.add_argument('--save_dir', type=str, help='save dir for model ckpt', default=".")
 
     # Data
@@ -66,7 +66,7 @@ def get_args():
     
     # Training
     parser.add_argument('--seed', type=int, help='fix random seed', default=3407)
-    parser.add_argument('--train_epochs', type=int, help='epochs of training', default=500)
+    parser.add_argument('--train_epochs', type=int, help='epochs of training', default=300)# 500
     parser.add_argument('--save_utd', type=int, help='save frequency', default=20)
     parser.add_argument('--batch_size', type=int, help='batch size (default: 2048)', default=2048)
     parser.add_argument('--learning_rate', type=float, help='learning rate (default: 5e-4)', default=5e-4)
@@ -91,7 +91,7 @@ def get_args():
     parser.add_argument('--predicted_neighbor_num', type=int, help='number of neighbor agents to predict', default=10)
     parser.add_argument('--resume_model_path', type=str, help='path to resume model', default=None)
 
-    parser.add_argument('--use_wandb', default=False, type=boolean)
+    parser.add_argument('--use_wandb', default=True, type=boolean)
     parser.add_argument('--notes', default='', type=str)
 
     # distributed training parameters
