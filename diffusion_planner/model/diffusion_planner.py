@@ -30,6 +30,14 @@ class Diffusion_Planner_Encoder(nn.Module):
         super().__init__()
 
         self.encoder = Encoder(config)
+        
+        # V2: Skill retrieval head - only enabled when use_skill_retrieval=True
+        self.use_skill_retrieval = getattr(config, "use_skill_retrieval", False)
+        if self.use_skill_retrieval:
+            self.num_skills = getattr(config, "num_skills", 8)
+            self.hidden_dim = getattr(config, "hidden_dim", 192)
+            self.skill_retrieval_head = nn.Linear(self.hidden_dim, self.num_skills)
+        
         self.initialize_weights()
 
     def initialize_weights(self):
@@ -55,6 +63,16 @@ class Diffusion_Planner_Encoder(nn.Module):
     def forward(self, inputs):
 
         encoder_outputs = self.encoder(inputs)
+        
+        # V2: Compute skill logits only when retrieval head is enabled
+        if self.use_skill_retrieval:
+            # encoding: [B, token_num, hidden_dim]
+            encoding = encoder_outputs['encoding']
+            # Simple mean pooling over tokens to get scene feature: [B, hidden_dim]
+            scene_feature = encoding.mean(dim=1)
+            # Predict skill logits: [B, num_skills]
+            skill_logits = self.skill_retrieval_head(scene_feature)
+            encoder_outputs['skill_logits'] = skill_logits
 
         return encoder_outputs
     

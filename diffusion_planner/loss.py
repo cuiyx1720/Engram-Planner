@@ -48,8 +48,17 @@ def diffusion_loss_func(
         "diffusion_time": t,
     }
 
-    _, decoder_output = model(merged_inputs) # [B, P, 1 + T, 4]
+    encoder_output, decoder_output = model(merged_inputs) # [B, P, 1 + T, 4]
     score = decoder_output["score"][:, :, 1:, :] # [B, P, T, 4]
+
+    # V2: Skill prediction loss (retrieval head supervision)
+    if "skill_logits" in encoder_output and "skill_id" in inputs:
+        skill_logits = encoder_output["skill_logits"]  # [B, num_skills]
+        skill_id = inputs["skill_id"]  # [B]
+        skill_loss = nn.functional.cross_entropy(skill_logits, skill_id)
+        loss["skill_loss"] = skill_loss
+    else:
+        loss["skill_loss"] = torch.tensor(0.0, device=gt_future.device)
 
     if model_type == "score":
         dpm_loss = torch.sum((score * std + z)**2, dim=-1)

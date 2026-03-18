@@ -104,7 +104,9 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
                 args.diffusion_model_type
             )
 
-            loss['loss'] = loss['neighbor_prediction_loss'] + args.alpha_planning_loss * loss['ego_planning_loss']
+            # V2: Add skill_loss to total loss
+            skill_loss_weight = getattr(args, 'skill_loss_weight', 0.1)
+            loss['loss'] = loss['neighbor_prediction_loss'] + args.alpha_planning_loss * loss['ego_planning_loss'] + skill_loss_weight * loss.get('skill_loss', 0.0)
 
             total_loss = loss['loss'].item()
 
