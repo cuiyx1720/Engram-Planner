@@ -12,6 +12,9 @@ class Diffusion_Planner(nn.Module):
 
         self.encoder = Diffusion_Planner_Encoder(config)
         self.decoder = Diffusion_Planner_Decoder(config)
+        
+        # Step3: Option to use predicted skill for decoder condition (inference only)
+        self.use_pred_skill_for_condition = getattr(config, "use_pred_skill_for_condition", False)
 
     @property
     def sde(self):
@@ -20,6 +23,14 @@ class Diffusion_Planner(nn.Module):
     def forward(self, inputs):
 
         encoder_outputs = self.encoder(inputs)
+        
+        # Step3: Optionally use predicted skill instead of gt skill for decoder (inference only)
+        if (not self.training) and self.use_pred_skill_for_condition and ('skill_logits' in encoder_outputs):
+            pred_skill_id = encoder_outputs['skill_logits'].argmax(dim=-1)
+            # Create a copy to avoid modifying original inputs
+            inputs = dict(inputs)
+            inputs['skill_id'] = pred_skill_id
+
         decoder_outputs = self.decoder(encoder_outputs, inputs)
 
         return encoder_outputs, decoder_outputs

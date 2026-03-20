@@ -82,6 +82,7 @@ def get_args():
     parser.add_argument('--use_ema', default=True, type=boolean)
     parser.add_argument('--use_skill_condition', default=False, type=boolean, help='enable skill-conditioned DiT (default: False)')
     parser.add_argument('--use_skill_retrieval', default=False, type=boolean, help='enable skill retrieval head training (V2, default: False)')
+    parser.add_argument('--use_pred_skill_for_condition', default=False, type=boolean, help='use predicted skill instead of gt skill for decoder condition (inference only, default: False)')
     parser.add_argument('--num_skills', type=int, default=8, help='number of discrete skills (default: 8)')
     parser.add_argument('--skill_loss_weight', type=float, default=0.1, help='weight for skill prediction loss (default: 0.1)')
 

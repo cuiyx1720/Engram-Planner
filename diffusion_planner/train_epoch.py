@@ -106,7 +106,9 @@ def train_epoch(data_loader, model, optimizer, args, ema, aug: StatePerturbation
 
             # V2: Add skill_loss to total loss
             skill_loss_weight = getattr(args, 'skill_loss_weight', 0.1)
-            loss['loss'] = loss['neighbor_prediction_loss'] + args.alpha_planning_loss * loss['ego_planning_loss'] + skill_loss_weight * loss.get('skill_loss', 0.0)
+            # main_task_loss: comparable metric across V1/V2 (without skill_loss)
+            loss['main_task_loss'] = loss['neighbor_prediction_loss'] + args.alpha_planning_loss * loss['ego_planning_loss']
+            loss['loss'] = loss['main_task_loss'] + skill_loss_weight * loss.get('skill_loss', 0.0)
 
             total_loss = loss['loss'].item()
 
